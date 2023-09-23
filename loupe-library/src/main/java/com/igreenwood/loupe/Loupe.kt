@@ -54,6 +54,7 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
         fun onViewTranslate(view: ImageView, amount: Float)
         fun onDismiss(view: ImageView)
         fun onRestore(view: ImageView)
+        fun onClick(view: ImageView)
     }
 
     interface OnScaleChangedListener {
@@ -219,6 +220,11 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
                 } else {
                     zoomInToTargetScale(e)
                 }
+                return true
+            }
+
+            override fun onSingleTapUp(e: MotionEvent?): Boolean {
+                onViewTranslateListener?.onClick(imageView)
                 return true
             }
         }
