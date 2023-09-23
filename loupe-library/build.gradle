@@ -8,12 +8,13 @@ ext {
 }
 
 android {
-    compileSdkVersion rootProject.ext.compileSdkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdkVersion 31
+    buildToolsVersion '30.0.3'
+    namespace = "com.igreenwood.loupe"
 
     defaultConfig {
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdkVersion 21
+        targetSdkVersion 31
         consumerProguardFiles 'proguard-rules.txt'
     }
 }
