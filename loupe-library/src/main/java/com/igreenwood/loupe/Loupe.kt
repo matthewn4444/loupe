@@ -909,7 +909,41 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
         val oldY = constrain(viewport.top, focalY, viewport.bottom)
         val newX = map(oldX, oldBounds.left, oldBounds.right, newBounds.left, newBounds.right)
         val newY = map(oldY, oldBounds.top, oldBounds.bottom, newBounds.top, newBounds.bottom)
-        offsetBitmap(oldX - newX, oldY - newY)
+
+        // TODO this is slightly off, i think its not 100% correct
+
+        // Constraint the offset to by the viewport to keep inside
+        val offset = PointF(oldX - newX, oldY - newY)
+        val b = RectF(newBounds)
+        b.offset(offset.x, offset.y)
+
+        if (viewport.left < b.left) {
+            offset.x += viewport.left - b.left
+        }
+
+        if (viewport.top < b.top) {
+            offset.y += viewport.top - b.top
+        }
+
+        if (viewport.right > b.right) {
+            offset.x += viewport.right - b.right
+        }
+
+        if (viewport.bottom > b.bottom) {
+            offset.y += viewport.bottom - b.bottom
+        }
+
+        if (offset.equals(0f, 0f)) {
+            return
+        }
+        if (!isVerticalScrollEnabled) {
+            offset.y = 0f
+        }
+
+        if (!isHorizontalScrollEnabled) {
+            offset.x = 0f
+        }
+        offsetBitmap(offset.x, offset.y)
     }
 
     private fun map(
