@@ -125,6 +125,8 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
     private var imageWidth = 0f
     // bitmap (decoded) height
     private var imageHeight = 0f
+    // caches last layout position and padding to only rerun if differences
+    private var layoutViewPadding = Rect()
 
     private val scroller: OverScroller
     private var originalViewBounds = Rect()
@@ -308,6 +310,10 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
         val container = containerRef.get() ?: return
 
         imageView.run {
+            if (!shouldRelayout(Rect(oldLeft, oldTop, oldRight, oldBottom), Rect(left, top, right, bottom))) {
+                return
+            }
+
             setupLayout(left, top, right, bottom)
             initialY = y
             if (useFlingToDismissGesture) {
@@ -318,6 +324,27 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
             container.background.alpha = 255
             setTransform()
             postInvalidate()
+        }
+    }
+
+    private fun shouldRelayout(oldBounds: Rect, newBounds: Rect): Boolean {
+        val imageView = imageViewRef.get() ?: return false
+
+        // Check if there are any differences to previous layout, skip if no changes
+        imageView.run {
+            val drawable = imageViewRef.get()?.drawable
+            if (width == 0 || height == 0 || drawable == null) return true
+            val bitmap = (drawable as? BitmapDrawable)?.bitmap
+            val imgW = (bitmap?.width ?: drawable.intrinsicWidth).toFloat()
+            val imgH = (bitmap?.height ?: drawable.intrinsicHeight).toFloat()
+            val padding = Rect(paddingLeft, paddingTop, paddingRight, paddingBottom)
+
+            // Do not run layout again and reset scale if nothing has changed
+            if (oldBounds == newBounds && initialY == y && layoutViewPadding == padding && imgW == imageWidth && imgH == imageHeight) {
+                return false
+            }
+            layoutViewPadding = padding
+            return true
         }
     }
 
