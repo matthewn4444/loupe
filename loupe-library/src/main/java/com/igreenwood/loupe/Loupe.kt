@@ -1,6 +1,7 @@
 package com.igreenwood.loupe
 
 import android.animation.Animator
+import android.animation.TypeEvaluator
 import android.animation.ValueAnimator
 import android.graphics.Matrix
 import android.graphics.PointF
@@ -24,6 +25,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+
 
 class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
     View.OnLayoutChangeListener {
@@ -59,6 +61,17 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
 
     interface OnScaleChangedListener {
         fun onScaleChange(scaleFactor: Float, focusX: Float, focusY: Float)
+    }
+
+    private class RectFEvaluator : TypeEvaluator<RectF> {
+        override fun evaluate(fraction: Float, srcRect: RectF, destRect: RectF): RectF {
+            val betweenRect = RectF()
+            betweenRect.bottom = srcRect.bottom + fraction * (destRect.bottom - srcRect.bottom)
+            betweenRect.top = srcRect.top + fraction * (destRect.top - srcRect.top)
+            betweenRect.left = srcRect.left + fraction * (destRect.left - srcRect.left)
+            betweenRect.right = srcRect.right + fraction * (destRect.right - srcRect.right)
+            return betweenRect
+        }
     }
 
     // max zoom(> 1f)
@@ -486,11 +499,43 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
         val endScale = minScale * maxZoom * doubleTapZoomScale
         val focalX = e.x
         val focalY = e.y
-        ValueAnimator.ofFloat(startScale, endScale).apply {
-            duration = scaleAnimationDuration
-            interpolator = doubleTapScaleAnimationInterpolator
+
+        // Calculate final size of zoomed image
+        val before = RectF(bitmapBounds)
+        zoomToTargetScale(endScale, focalX, focalY)
+
+        // Move the image to the side if it covers the screen
+        var after = RectF(bitmapBounds)
+        if (after.width() >= canvasBounds.width()) {
+            if (after.left > canvasBounds.left) {
+                after.offset(-after.left, 0f);
+            } else if (after.right < canvasBounds.right) {
+                after.offset(canvasBounds.right - after.right, 0f);
+            }
+        } else {
+            // Center image because not larger than screen
+            val left = (canvasBounds.width() - after.width()) / 2
+            after.offset(left - after.left, 0f)
+        }
+        if (after.height() >= canvasBounds.height()) {
+            if (after.top > canvasBounds.top) {
+                after.offset(-after.top, 0f);
+            } else if (after.bottom < canvasBounds.bottom) {
+                after.offset(0f, canvasBounds.bottom - after.bottom );
+            }
+        } else {
+            // Center image because not larger than screen
+            val top = (canvasBounds.height() - after.height()) / 2
+            after.offset(0f, top - after.top)
+        }
+
+        // Animate the zoom in to the position and size of final image
+        ValueAnimator().apply {
+            setObjectValues(before, after)
+            setEvaluator(RectFEvaluator())
             addUpdateListener {
-                zoomToTargetScale(it.animatedValue as Float, focalX, focalY)
+                scale = it.animatedFraction * abs(endScale - startScale) + startScale
+                bitmapBounds = it.animatedValue as RectF
                 ViewCompat.postInvalidateOnAnimation(imageView)
                 setTransform()
             }
@@ -501,6 +546,7 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
 
                 override fun onAnimationEnd(p0: Animator?) {
                     isBitmapScaleAnimationRunninng = false
+                    scale = endScale
                     if (endScale == minScale) {
                         zoomToTargetScale(minScale, focalX, focalY)
                         imageView.postInvalidate()
@@ -515,6 +561,8 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
                     // no op
                 }
             })
+            duration = scaleAnimationDuration
+            interpolator = doubleTapScaleAnimationInterpolator
         }.start()
     }
 
@@ -909,41 +957,7 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
         val oldY = constrain(viewport.top, focalY, viewport.bottom)
         val newX = map(oldX, oldBounds.left, oldBounds.right, newBounds.left, newBounds.right)
         val newY = map(oldY, oldBounds.top, oldBounds.bottom, newBounds.top, newBounds.bottom)
-
-        // TODO this is slightly off, i think its not 100% correct
-
-        // Constraint the offset to by the viewport to keep inside
-        val offset = PointF(oldX - newX, oldY - newY)
-        val b = RectF(newBounds)
-        b.offset(offset.x, offset.y)
-
-        if (viewport.left < b.left) {
-            offset.x += viewport.left - b.left
-        }
-
-        if (viewport.top < b.top) {
-            offset.y += viewport.top - b.top
-        }
-
-        if (viewport.right > b.right) {
-            offset.x += viewport.right - b.right
-        }
-
-        if (viewport.bottom > b.bottom) {
-            offset.y += viewport.bottom - b.bottom
-        }
-
-        if (offset.equals(0f, 0f)) {
-            return
-        }
-        if (!isVerticalScrollEnabled) {
-            offset.y = 0f
-        }
-
-        if (!isHorizontalScrollEnabled) {
-            offset.x = 0f
-        }
-        offsetBitmap(offset.x, offset.y)
+        offsetBitmap(oldX - newX, oldY - newY)
     }
 
     private fun map(
