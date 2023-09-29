@@ -534,7 +534,7 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
             setObjectValues(before, after)
             setEvaluator(RectFEvaluator())
             addUpdateListener {
-                scale = it.animatedFraction * abs(endScale - startScale) + startScale
+                scale = lerp(it.animatedFraction, startScale, endScale)
                 bitmapBounds = it.animatedValue as RectF
                 ViewCompat.postInvalidateOnAnimation(imageView)
                 setTransform()
@@ -841,6 +841,8 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
         }
 
         if (animate) {
+            val start = RectF(bitmapBounds)
+
             if (!isVerticalScrollEnabled) {
                 bitmapBounds.offset(0f, offset.y)
                 offset.y = 0f
@@ -851,7 +853,6 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
                 offset.x = 0f
             }
 
-            val start = RectF(bitmapBounds)
             val end = RectF(bitmapBounds).apply {
                 offset(offset.x, offset.y)
             }
