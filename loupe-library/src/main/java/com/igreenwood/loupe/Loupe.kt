@@ -519,7 +519,7 @@ class Loupe(imageView: ImageView, container: ViewGroup) : View.OnTouchListener,
         }
         if (after.height() >= canvasBounds.height()) {
             if (after.top > canvasBounds.top) {
-                after.offset(-after.top, 0f);
+                after.offset(0f, -after.top)
             } else if (after.bottom < canvasBounds.bottom) {
                 after.offset(0f, canvasBounds.bottom - after.bottom );
             }
